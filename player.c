@@ -115,37 +115,38 @@ static void search(Game *game)
         heap_pop(pq, pq_size, cmp_board);
         Board *board = pq[--pq_size];
 
-        if (iterations%1000 == 0)
+        if (iterations%10000 == 0)
         {
-            printf( "iterations=%10lldk score=%10d moves=%10d\n",
-                    iterations/1000, board->score, board->moves );
+            printf( "iterations=%10lldk score=%10d moves=%10d pq_size=%10d\n",
+                    iterations/1000, board->score, board->moves, pq_size );
         }
 
-        if (board->moves == MOVE_LIMIT) continue;
-
-        int r, c, v;
-        for (v = 0; v < 2; ++v)
+        if (board->moves < MOVE_LIMIT)
         {
-            for (r = 0; r < HIG(board); ++r)
+            int r, c, v;
+            for (v = 0; v < 2; ++v)
             {
-                for (c = 0; c < WID(board); ++c)
+                for (r = 0; r < HIG(board); ++r)
                 {
-                    if (!move_valid(board, r, c, v)) continue;
-
-                    /* Build new board */
-                    Board *new_board = board_clone(board);
-                    assert(new_board != NULL);
-                    board_move(new_board, r, c, r + v, c + !v);
-
-                    /* Truncate queue if necessary */
-                    if (pq_size == pq_cap)
+                    for (c = 0; c < WID(board); ++c)
                     {
-                        printf("Truncating queue...\n");
-                        qsort((void*)pq, pq_size, sizeof(void*), cmp_board);
-                        while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
+                        if (!move_valid(board, r, c, v)) continue;
+
+                        /* Build new board */
+                        Board *new_board = board_clone(board);
+                        assert(new_board != NULL);
+                        board_move(new_board, r, c, r + v, c + !v);
+
+                        /* Truncate queue if necessary */
+                        if (pq_size == pq_cap)
+                        {
+                            printf("Truncating queue...\n");
+                            qsort((void*)pq, pq_size, sizeof(void*), cmp_board);
+                            while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
+                        }
+                        pq[pq_size++] = new_board;
+                        heap_push(pq, pq_size, cmp_board);
                     }
-                    pq[pq_size++] = new_board;
-                    heap_push(pq, pq_size, cmp_board);
                 }
             }
         }

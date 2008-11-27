@@ -92,7 +92,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("Total score %d after %d moves.\n", board->score, moves);
+    if (board->score == SCORE_LIMIT)
+    {
+        printf("Infinite score after %d moves\n", moves);
+    }
+    else
+    {
+        printf("Total score %d after %d moves.\n", board->score, moves);
+    }
 
     board_dump(board, stdout);
     board_free(board);

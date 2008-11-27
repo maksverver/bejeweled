@@ -1,18 +1,10 @@
 #ifndef GAME_H_INCLUDED
 #define GAME_H_INCLUDED
 
-
-                        /* maximum score -- if you reach this, you win */
-#define SCORE_LIMIT     (1000000000)
-
-                        /* maximum moves -- if you reach this, you win */
-#define MOVE_LIMIT      (100000)
-
-                        /* maximum field height; larger fields are truncated */
-#define MAX_HEIGHT      (50)
-
-                        /* maximum field width; larger fields are truncated */
-#define MAX_WIDTH       (50)
+#define SCORE_LIMIT   (1000000000)  /* max. score; if you reach this, you win */
+#define MOVE_LIMIT    (100000)      /* max. moves; if you reach this, you win */
+#define MAX_HEIGHT    (50)          /* max. field height */
+#define MAX_WIDTH     (50)          /* max. field width */
 
 
 /* Fields are represented by a byte; -1 for blocked fields, 0 for empty fields,

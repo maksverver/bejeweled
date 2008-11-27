@@ -117,16 +117,16 @@ static int remove_groups(Board *board, Rect *area)
 
             if (u == w*r + c)
             {
-                if (crd[n] == 3)
+                if (crd[u] == 3)
                 {
-                    score +=  50;
+                    score += 50;
                 }
                 else
-                if (crd[n] == 4)
+                if (crd[u] == 4)
                 {
                     score += 100;
                 }
-                else /* crd[n] >= 5 */
+                else /* crd[u] >= 5 */
                 {
                     score += 250;
                 }
@@ -195,15 +195,17 @@ static void fill_columns(Board *board, Rect *area)
 */
 static int board_score(Board *board, Rect *area)
 {
-    int total_score, score;
+    int total_score, score, iterations;
 
-    total_score = 0;
+    iterations = total_score = 0;
     while ((score = remove_groups(board, area)) > 0)
     {
         fill_columns(board, area);
         total_score += score;
-        if (total_score >= SCORE_LIMIT)
+        if (board->score + total_score >= SCORE_LIMIT) break;
+        if (++iterations == 10000)
         {
+            /* Let's assume we're in an infinite loop */
             total_score = SCORE_LIMIT;
             break;
         }
