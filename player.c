@@ -7,14 +7,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Compares to boards according to higher score (primarily) or
-   lower number of moves (secondarily). */
+/* Compares to boards and returns <0, 0, >0 when the first board is better than,
+   equal to, or worse than the second board.
+
+   In this context, a board is better than another board if the former has a
+   higher score, or if the scores are equal, but the former used fewer moves.
+*/
 int cmp_board(const void *arg1, const void *arg2)
 {
     const Board *b1 = arg1;
     const Board *b2 = arg2;
-    if (b1->score == b2->score) return b1->score - b2->score;
-    return b2->moves - b1->moves;
+    if (b1->score != b2->score) return b2->score - b1->score;
+    return b1->moves - b2->moves;
 }
 
 static void heap_swap(void **pq, size_t i, size_t j)
@@ -26,7 +30,22 @@ static void heap_swap(void **pq, size_t i, size_t j)
     pq[j] = tmp;
 }
 
-/* pq[0..size-1) is a valid max-heap;
+#if 0
+void check_heap(void **pq, size_t size, int (*cmp)(const void *, const void*))
+{
+    size_t cur;
+    for (cur = 1; cur < size; ++cur)
+    {
+        if (cmp(pq[(cur-1)/2], pq[cur]) > 0)
+        {
+            printf("heap violation at position %zd\n", cur);
+            abort();
+        }
+    }
+}
+#endif
+
+/* pq[0..size-1) is a valid min-heap;
    pq[size-1] is an element to be pushed into the heap. */
 void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
 {
@@ -37,8 +56,10 @@ void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
     cur = size - 1;
     while (cur > 0)
     {
-        par = cur/2;
-        if (cmp(pq[par], pq[cur]) >= 0) break;
+        par = (cur - 1)/2;
+
+        /* Stop if parent is not greater than current node */
+        if (cmp(pq[par], pq[cur]) <= 0) break;
 
         /* Swap with parent */
         heap_swap(pq, cur, par);
@@ -46,8 +67,8 @@ void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
     }
 }
 
-/* pq[0..size) is a valid max-heap;
-   afterwards, pq[0..size-1) is a valid max-heap and pq[size-1] is the formerly
+/* pq[0..size) is a valid min-heap;
+   afterwards, pq[0..size-1) is a valid min-heap and pq[size-1] is the formerly
    largest element in the heap. */
 void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
 {
@@ -62,13 +83,13 @@ void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
     cur = 0;
     while ((child = 2*cur + 1) < size)
     {
-        /* Select child to compare against (largest of the two) */
-        if (child + 1 < size && cmp(pq[child], pq[child + 1]) < 0) ++child;
+        /* Select child to compare against (smallest of the two) */
+        if (child + 1 < size && cmp(pq[child + 1], pq[child]) < 0) ++child;
 
-        /* See if child is larger than current element */
-        if (cmp(pq[child], pq[cur]) >= 0) break;
+        /* Stop if current element is not greater than child */
+        if (cmp(pq[cur], pq[child]) <= 0) break;
 
-        /* Swap current node with largest child */
+        /* Swap current node with smallest child */
         heap_swap(pq, cur, child);
         cur = child;
     }
@@ -76,12 +97,12 @@ void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
 
 static void search(Game *game)
 {
-    void **pq = malloc(1024*sizeof(void*));
-    size_t pq_cap = 1024, pq_size = 0;
+    size_t pq_cap = 1000000, pq_size = 0;
+    void **pq = malloc(pq_cap*sizeof(void*));
 
     assert(pq != NULL);
 
-    pq[pq_size++] = game->initial;
+    pq[pq_size++] = board_clone(game->initial);
     heap_push(pq, pq_size, cmp_board);
 
     while (pq_size > 0)
@@ -106,12 +127,12 @@ static void search(Game *game)
                     Board *new_board = board_clone(board);
                     board_move(new_board, r, c, r + v, c + !v);
 
-                    /* Resize queue if necessary */
+                    /* Truncate queue if necessary */
                     if (pq_size == pq_cap)
                     {
-                        pq_cap *= 2;
-                        pq = realloc(pq, pq_cap*sizeof(void*));
-                        assert(pq != NULL);
+                        printf("Truncating queue...\n");
+                        qsort((void*)pq, pq_size, sizeof(void*), cmp_board);
+                        while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
                     }
                     pq[pq_size++] = new_board;
                     heap_push(pq, pq_size, cmp_board);
@@ -122,6 +143,9 @@ static void search(Game *game)
         board_free(board);
     }
     printf("Queue exhausted.\n");
+
+    while (pq_size > 0) board_free(pq[--pq_size]);
+    free(pq);
 }
 
 int main(int argc, char *argv[])
@@ -144,6 +168,8 @@ int main(int argc, char *argv[])
     }
 
     search(game);
+
+    game_free(game);
 
     return 0;
 }

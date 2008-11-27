@@ -1,2 +1,17 @@
-- Test robustness of case input functions.
-- Generate code to generate random test cases from templates.
+- Test robustness of test case input functions.
+
+To implement:
+- Remove least valuable states from queue when it gets full
+- Adhere to time limit (auto-quit after expiration)
+- Keep track of moves made, and periodically write best
+  sequence to output file.
+
+- Write code to generate random test cases from templates
+- Generate a bunch of meaningful test cases
+- Keep test scores for different revisions to see if we're
+  actually making progress.
+
+- Try alternative state valuation: highest score/move ratio?
+- Try forcing progress by kicking states with few moves
+   (e.g. after 1 of 15 minutes, remove states with less than
+         10,000/15 moves)

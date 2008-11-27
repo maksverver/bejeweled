@@ -442,7 +442,7 @@ void game_free(Game *game)
         {
             free(game->drops_end);
         }
-        free(game->initial);
+        board_free(game->initial);
         free(game);
     }
 }
