@@ -21,6 +21,12 @@ int cmp_board(const void *arg1, const void *arg2)
     return b1->moves - b2->moves;
 }
 
+/* Indirect board comparison (used by qsort) */
+int cmp_board_indirect(const void *arg1, const void *arg2)
+{
+    return cmp_board(*(const void**)arg1, *(const void**)arg2);
+}
+
 static void heap_swap(void **pq, size_t i, size_t j)
 {
     void *tmp;
@@ -141,7 +147,8 @@ static void search(Game *game)
                         if (pq_size == pq_cap)
                         {
                             printf("Truncating queue...\n");
-                            qsort((void*)pq, pq_size, sizeof(void*), cmp_board);
+                            qsort( (void*)pq, pq_size, sizeof(void*),
+                                   cmp_board_indirect );
                             while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
                         }
                         pq[pq_size++] = new_board;
