@@ -105,12 +105,21 @@ static void search(Game *game)
     pq[pq_size++] = board_clone(game->initial);
     heap_push(pq, pq_size, cmp_board);
 
+    long long iterations = 0;
     while (pq_size > 0)
     {
+        ++iterations;
+        /* if (iterations == 50000) break; */
+
+        /* Take next best board from the heap */
         heap_pop(pq, pq_size, cmp_board);
         Board *board = pq[--pq_size];
 
-        printf("score=%10d moves=%10d\n", board->score, board->moves);
+        if (iterations%1000 == 0)
+        {
+            printf( "iterations=%10lldk score=%10d moves=%10d\n",
+                    iterations/1000, board->score, board->moves );
+        }
 
         if (board->moves == MOVE_LIMIT) continue;
 
@@ -125,6 +134,7 @@ static void search(Game *game)
 
                     /* Build new board */
                     Board *new_board = board_clone(board);
+                    assert(new_board != NULL);
                     board_move(new_board, r, c, r + v, c + !v);
 
                     /* Truncate queue if necessary */
@@ -148,9 +158,16 @@ static void search(Game *game)
     free(pq);
 }
 
+/* For setrlimit */
+#include <sys/resource.h>
+
 int main(int argc, char *argv[])
 {
     Game *game;
+
+    /* For debugging: limit available memory to 512MB */
+    struct rlimit rlim = { 512*1024*1024, RLIM_INFINITY };
+    setrlimit(RLIMIT_AS, &rlim);
 
     mem_debug_report_at_exit(stderr);
 

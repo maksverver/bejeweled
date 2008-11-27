@@ -12,11 +12,15 @@ struct Ptr
 };
 
 /* Global variables */
-static struct Ptr *ptrs;    /* linked list of registered points */
+
+/* Hash table containing linked lists of registered pointers */
+#define HT_SIZE (1234567)
+static struct Ptr *ptrs[HT_SIZE];
 
 /* For running the at-exit handler: */
 static int at_exit_registered;
 static FILE *at_exit_fp;
+
 
 
 void add_ptr(void *ptr, size_t size, const char *file, int line)
@@ -25,12 +29,13 @@ void add_ptr(void *ptr, size_t size, const char *file, int line)
 
     if (p != NULL)
     {
-        p->next = ptrs;
+        size_t i = ((size_t)ptr)%HT_SIZE;
+        p->next = ptrs[i];
         p->ptr  = ptr;
         p->size = size;
         p->file = file;
         p->line = line;
-        ptrs = p;
+        ptrs[i] = p;
     }
     else
     {
@@ -42,8 +47,9 @@ void add_ptr(void *ptr, size_t size, const char *file, int line)
 int del_ptr(void *ptr)
 {
     struct Ptr **pp;
+    size_t i = ((size_t)ptr)%HT_SIZE;
 
-    for (pp = &ptrs; *pp; pp = &(*pp)->next)
+    for (pp = &ptrs[i]; *pp; pp = &(*pp)->next)
     {
         if ((*pp)->ptr == ptr)
         {
@@ -134,12 +140,15 @@ void mem_debug_report(FILE *fp, int enabled)
     }
 
     struct Ptr *p;
-
-    for (p = ptrs; p != NULL; p = p->next)
+    size_t i;
+    for (i = 0; i < HT_SIZE; ++i)
     {
-        fprintf(fp, "Pointer %p with size %d leaked "
-                    "allocated in file %s at line %d.\n",
-                    p->ptr, p->size, p->file, p->line );
+        for (p = ptrs[i]; p != NULL; p = p->next)
+        {
+            fprintf(fp, "Pointer %p with size %d leaked "
+                        "allocated in file %s at line %d.\n",
+                        p->ptr, p->size, p->file, p->line );
+        }
     }
 
     if (ptrs == NULL) fprintf(fp, "No memory leaks present!\n");
