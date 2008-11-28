@@ -1,10 +1,7 @@
 - Test robustness of test case input functions.
 
 To implement:
-- Remove least valuable states from queue when it gets full
 - Adhere to time limit (auto-quit after expiration)
-- Keep track of moves made, and periodically write best
-  sequence to output file.
 
 - Write code to generate random test cases from templates
 - Generate a bunch of meaningful test cases

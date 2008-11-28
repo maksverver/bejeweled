@@ -7,22 +7,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+int score_per_move = 0;
+
+static int expected_score(const Board *b)
+{
+    return b->score + score_per_move*(MOVE_LIMIT - b->moves);
+}
+
 /* Compares to boards and returns <0, 0, >0 when the first board is better than,
    equal to, or worse than the second board.
-
-   In this context, a board is better than another board if the former has a
-   higher score, or if the scores are equal, but the former used fewer moves.
 */
-int cmp_board(const void *arg1, const void *arg2)
+static int cmp_board(const void *arg1, const void *arg2)
 {
-    const Board *b1 = arg1;
-    const Board *b2 = arg2;
-    if (b1->score != b2->score) return b2->score - b1->score;
-    return b1->moves - b2->moves;
+    return expected_score((const Board*)arg2) -
+           expected_score((const Board*)arg1);
 }
 
 /* Indirect board comparison (used by qsort) */
-int cmp_board_indirect(const void *arg1, const void *arg2)
+static int cmp_board_indirect(const void *arg1, const void *arg2)
 {
     return cmp_board(*(const void**)arg1, *(const void**)arg2);
 }
@@ -101,16 +103,23 @@ static void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void
     }
 }
 
+__attribute__((__noinline__))   /* for profiling */
+static void truncate_queue(void **pq, size_t *size, size_t cap)
+{
+    qsort( (void*)pq, *size, sizeof(void*), cmp_board_indirect );
+    while (*size > cap/2) board_free(pq[--*size]);
+}
+
 /* TODO: add time limit to search */
-/* TODO: add minimum average score */
-static void search(Game *game)
+static int search(Game *game)
 {
     /* Priority queue of states */
-    size_t pq_cap = 20000, pq_size = 0;
+    size_t pq_cap = 1000, pq_size = 0;
     void **pq = malloc(pq_cap*sizeof(void*));
 
     /* Keep track of best score so far, and corresponding best last move */
     int best_score = 0;
+    int best_moves = 0;
     Move *best_move = NULL;
 
     assert(pq != NULL);
@@ -132,6 +141,7 @@ static void search(Game *game)
         {
             /* Update best score found */
             best_score = board->score;
+            best_moves = board->moves;
             move_deref(best_move);
             best_move = board->last_move;
             move_ref(best_move);
@@ -165,13 +175,8 @@ static void search(Game *game)
                     board_move(new_board, r, c, r + v, c + !v, 1);
 
                     /* Truncate queue if necessary */
-                    if (pq_size == pq_cap)
-                    {
-                        printf("Truncating queue...\n");
-                        qsort( (void*)pq, pq_size, sizeof(void*),
-                                cmp_board_indirect );
-                        while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
-                    }
+                    if (pq_size == pq_cap) truncate_queue(pq, &pq_size, pq_cap);
+
                     pq[pq_size++] = new_board;
                     heap_push(pq, pq_size, cmp_board);
                 }
@@ -195,6 +200,8 @@ static void search(Game *game)
     /* Free priority queue */
     while (pq_size > 0) board_free(pq[--pq_size]);
     free(pq);
+
+    return best_score/best_moves;
 }
 
 /* For setrlimit */
@@ -223,7 +230,11 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    search(game);
+    int pass;
+    for (pass = 0; pass < 5; ++pass)
+    {
+        score_per_move = search(game);
+    }
 
     game_free(game);
 
