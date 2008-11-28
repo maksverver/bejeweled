@@ -1,5 +1,5 @@
 CFLAGS=-ansi -Wall -Wextra -g -O2 -m32 -march=i686 -DMEM_DEBUG
-OBJS=Game.o Moves.o MemDebug.o
+OBJS=Game.o MemDebug.o Moves.o PriorityQueue.o
 
 all: verifier player
 
