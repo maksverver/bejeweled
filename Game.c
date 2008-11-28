@@ -580,8 +580,11 @@ void move_deref(Move *move)
 
 void board_free(Board *board)
 {
-    move_deref(board->last_move);
-    free(board);
+    if (board != NULL)
+    {
+        move_deref(board->last_move);
+        free(board);
+    }
 }
 
 /* NOTE: this function uses a lot of stack space! */
