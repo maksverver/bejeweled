@@ -20,15 +20,28 @@ typedef struct Rect
 static int min(int i, int j) { return i < j ? i : j; }
 static int max(int i, int j) { return i > j ? i : j; }
 
-/* Find an identifier for group i (using the stack) */
+
+/* Find an identifier for group i, compressing the path to the root along
+   the way, without using the stack or recursive calls. */
 static int find(int *grp, int i)
 {
-    if (grp[i] == i) return i;
-    return grp[i] = find(grp, grp[i]);
+    /* Find representative element (set to j) */
+    int j = i;
+    while (j != grp[j]) j = grp[j];
+
+    /* Update all elements in path from i to j */
+    while (i != j)
+    {
+        int k = grp[i];
+        grp[k] = j;
+        i = k;
+    }
+
+    return j;
 }
 
-/* Unify groups i and j */
-static void unify(int *grp, int *crd, int i, int j)
+/* Merge groups i and j */
+static void merge(int *grp, int *crd, int i, int j)
 {
     int u = find(grp, i), v = find(grp, j);
     if (u == v) return;
@@ -80,8 +93,8 @@ static int remove_groups(Board *board, Rect *area)
             if ( fields[r][c - 2] == fields[r][c - 1] &&
                  fields[r][c - 1] == fields[r][c - 0] )
             {
-                unify(grp, crd, w*r + c - 2, w*r + c - 1);
-                unify(grp, crd, w*r + c - 1, w*r + c - 0);
+                merge(grp, crd, w*r + c - 2, w*r + c - 1);
+                merge(grp, crd, w*r + c - 1, w*r + c - 0);
                 ++score;
             }
         }
@@ -97,8 +110,8 @@ static int remove_groups(Board *board, Rect *area)
             if ( fields[r - 2][c] == fields[r - 1][c] &&
                  fields[r - 1][c] == fields[r - 0][c] )
             {
-                unify(grp, crd, w*(r - 2) + c, w*(r - 1) + c);
-                unify(grp, crd, w*(r - 1) + c, w*(r - 0) + c);
+                merge(grp, crd, w*(r - 2) + c, w*(r - 1) + c);
+                merge(grp, crd, w*(r - 1) + c, w*(r - 0) + c);
                 ++score;
             }
         }
