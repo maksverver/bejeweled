@@ -140,7 +140,7 @@ void mem_debug_report(FILE *fp, int enabled)
     }
 
     struct Ptr *p;
-    size_t i;
+    size_t i, cnt = 0;;
     for (i = 0; i < HT_SIZE; ++i)
     {
         for (p = ptrs[i]; p != NULL; p = p->next)
@@ -148,10 +148,11 @@ void mem_debug_report(FILE *fp, int enabled)
             fprintf(fp, "Pointer %p with size %d leaked "
                         "allocated in file %s at line %d.\n",
                         p->ptr, p->size, p->file, p->line );
+            ++cnt;
         }
     }
 
-    if (ptrs == NULL) fprintf(fp, "No memory leaks present!\n");
+    if (cnt == 0) fprintf(fp, "No memory leaks present!\n");
 }
 
 static void report_at_exit_enabled()
