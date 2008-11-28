@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
             break;
         }
 
-        if (board_move(board, y1, x1, y2, x2) == 0)
+        if (board_move(board, y1, x1, y2, x2, 0) == 0)
         {
             board_dump(board, stdout);
             printf( "Move %d (%d %d %c) does not score any points (undone)\n",

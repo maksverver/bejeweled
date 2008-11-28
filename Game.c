@@ -4,6 +4,7 @@
 
 #include "Game.h"
 #include "MemDebug.h"
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -294,12 +295,17 @@ static bool read_fields(Game *game, const char *path)
     game->drops_begin = malloc(game->width*sizeof(Field*));
     game->drops_end   = malloc(game->width*sizeof(Field*));
     if (game->drops_begin == NULL || game->drops_end == NULL) return false;
+
+    /* Allocate initial board */
     game->initial = board_alloc(game);
     game->initial->game = game;
-    memset(game->initial->fields, FIELD_BLOCKED, game->width*game->height);
+    game->initial->moves = 0;
+    game->initial->score = 0;
+    game->initial->last_move = NULL;
 
     /* Initialize fields */
     r = c = 0;
+    memset(game->initial->fields, FIELD_BLOCKED, game->width*game->height);
     for (n = 0; n < len; ++n)
     {
         if (buf[n] >= '0' && buf[n] <= '1')
@@ -393,39 +399,39 @@ failed:
 Game *game_load(const char *dir)
 {
     char oldwd[1024];
-    Game *g;
+    Game *game;
     Rect area;
 
     /* Back up current working dir, then got to new dir */
     if (getcwd(oldwd, sizeof(oldwd)) == NULL || chdir(dir) != 0) return NULL;
 
     /* Allocate game */
-    g = malloc(sizeof(Game));
-    if (g == NULL) return NULL;
-    memset(g, 0, sizeof(Game));
+    game = malloc(sizeof(Game));
+    if (game == NULL) return NULL;
+    memset(game, 0, sizeof(Game));
 
     /* Read field and column data */
-    if (!read_fields(g, "speelveld.txt")) goto failed;
-    if (!read_columns(g, "kolommen.txt")) goto failed;
+    if (!read_fields(game, "speelveld.txt")) goto failed;
+    if (!read_columns(game, "kolommen.txt")) goto failed;
 
     /* Fill board and set initial score */
     area.r1 = area.c1 = 0;
-    area.r2 = g->height;
-    area.c2 = g->width;
-    fill_columns(g->initial, &area);
-    g->initial->score = board_score(g->initial, &area);
+    area.r2 = game->height;
+    area.c2 = game->width;
+    fill_columns(game->initial, &area);
+    game->initial->score = board_score(game->initial, &area);
 
     /* Go back to old working dir */
     if (chdir(oldwd) != 0) goto failed;
 
-    return g;
+    return game;
 
 failed:
     /* Clean up allocated resources */
     {
         int e = errno;
         chdir(oldwd);
-        game_free(g);
+        game_free(game);
         errno = e;
         return NULL;
     }
@@ -449,7 +455,7 @@ void game_free(Game *game)
     }
 }
 
-int board_move(Board *board, int r1, int c1, int r2, int c2)
+int board_move(Board *board, int r1, int c1, int r2, int c2, int trace)
 {
     int score;
     Rect area;
@@ -464,6 +470,23 @@ int board_move(Board *board, int r1, int c1, int r2, int c2)
     if (score > 0)
     {
         ++board->moves;
+        if (trace)
+        {
+            Move *new_move = malloc(sizeof(Move));
+            /* FIXME: this should be externally detectable */
+            assert(new_move != NULL);
+            new_move->prev = board->last_move;
+            new_move->ref_count = 1;
+            new_move->r1 = r1;
+            new_move->c1 = c1;
+            new_move->r2 = r2;
+            new_move->c2 = c2;
+            board->last_move = new_move;
+        }
+        else
+        {
+            board->last_move = NULL;
+        }
     }
     else
     {
@@ -488,6 +511,8 @@ Board *board_clone(Board *board)
             clone->game->width*sizeof(*clone->drops) );
         clone->score = board->score;
         clone->moves = board->moves;
+        clone->last_move = board->last_move;
+        if (clone->last_move != NULL) move_ref(clone->last_move);
     }
 
     return clone;
@@ -531,5 +556,52 @@ void board_dump(Board *board, void *fp)
             fprintf(fp, " %c", (char)('0' + f - 1));
         }
         fputc('\n', fp);
+    }
+}
+
+void move_ref(Move *move)
+{
+    if (move != NULL) ++move->ref_count;
+}
+
+void move_deref(Move *move)
+{
+    Move *prev;
+
+    while (move != NULL)
+    {
+        assert(move->ref_count > 0);
+        if (--move->ref_count > 0) break;
+        prev = move->prev;
+        free(move);
+        move = prev;
+    }
+}
+
+void board_free(Board *board)
+{
+    move_deref(board->last_move);
+    free(board);
+}
+
+/* NOTE: this function uses a lot of stack space! */
+void moves_print(Move *move, void *fp)
+{
+    Move *moves[MOVE_LIMIT];
+    size_t size;
+
+    size = 0;
+    while (move != NULL)
+    {
+        moves[size++] = move;
+        move = move->prev;
+    }
+
+    while (size > 0)
+    {
+        move = moves[--size];
+        fprintf( fp, "%d %d %c\n",
+                 (int)move->c1, (int)move->r1,
+                 (move->r1 == move->r2) ? 'O' : 'Z' );
     }
 }

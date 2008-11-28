@@ -13,14 +13,23 @@ typedef signed char Field;
 #define FIELD_EMPTY     ((Field) 0)
 #define FIELD_BLOCKED   ((Field)-1)
 
+/* Represents a move */
+typedef struct Move
+{
+    struct Move *prev;              /* previous move */
+    unsigned ref_count;             /* reference count */
+    unsigned char r1, c1, r2, c2;   /* move coordinates */
+} Move;
+
 /* Represents the dynamic state of a game */
 typedef struct Board
 {
-    struct Game *game;
+    struct Game *game;      /* reference to the game description */
     Field *fields;          /* fields in the board in row-major order */
     Field **drops;          /* array of pointers into the drop lists */
     int score;              /* total score so far */
     int moves;              /* total moves performed so far */
+    Move *last_move;        /* last move (or NULL for initial board) */
 } Board;
 
 /* Represents the static state of a game; i.e. the board dimensions,
@@ -58,17 +67,25 @@ void game_free(Game *game);
    scoring rows are formed and the move has not been executed.
 
    The squares indiciated by (r1,c1) and (r2,c2) must be distinct but adjacent.
+   If trace is non-zero, move trace information is associated with the board.
 */
-int board_move(Board *board, int r1, int c1, int r2, int c2);
+int board_move(Board *board, int r1, int c1, int r2, int c2, int trace);
 
 /* Clone a board, or return NULL if memory allocation fails.
    The board returned must be freed with board_free(). */
 Board *board_clone(Board *board);
 
 /* Free a board. */
-#define board_free(board) free(board)
+void board_free(Board *board);
 
 /* For debugging: dump the board configuration in a human-readable format. */
 void board_dump(Board *board, void *fp);
+
+/* Print a list of at most MOVE_LIMIT moves to the given file pointer */
+void moves_print(Move *last_move, void *fp);
+
+/* Reference counting for moves */
+void move_ref(Move *move);
+void move_deref(Move *move);
 
 #endif /* ndef GAME_H_INCLUDED */

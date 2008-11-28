@@ -37,7 +37,7 @@ static void heap_swap(void **pq, size_t i, size_t j)
 }
 
 #if 0
-void check_heap(void **pq, size_t size, int (*cmp)(const void *, const void*))
+static void check_heap(void **pq, size_t size, int (*cmp)(const void *, const void*))
 {
     size_t cur;
     for (cur = 1; cur < size; ++cur)
@@ -53,7 +53,7 @@ void check_heap(void **pq, size_t size, int (*cmp)(const void *, const void*))
 
 /* pq[0..size-1) is a valid min-heap;
    pq[size-1] is an element to be pushed into the heap. */
-void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
+static void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
 {
     assert(size > 0);
 
@@ -76,7 +76,7 @@ void heap_push(void **pq, size_t size, int (*cmp)(const void *, const void*))
 /* pq[0..size) is a valid min-heap;
    afterwards, pq[0..size-1) is a valid min-heap and pq[size-1] is the formerly
    largest element in the heap. */
-void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
+static void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
 {
     assert(size > 0);
 
@@ -101,10 +101,17 @@ void heap_pop(void **pq, size_t size, int (*cmp)(const void *, const void*))
     }
 }
 
+/* TODO: add time limit to search */
+/* TODO: add minimum average score */
 static void search(Game *game)
 {
-    size_t pq_cap = 1000000, pq_size = 0;
+    /* Priority queue of states */
+    size_t pq_cap = 20000, pq_size = 0;
     void **pq = malloc(pq_cap*sizeof(void*));
+
+    /* Keep track of best score so far, and corresponding best last move */
+    int best_score = 0;
+    Move *best_move = NULL;
 
     assert(pq != NULL);
 
@@ -121,47 +128,71 @@ static void search(Game *game)
         heap_pop(pq, pq_size, cmp_board);
         Board *board = pq[--pq_size];
 
+        if (board->score > best_score)
+        {
+            /* Update best score found */
+            best_score = board->score;
+            move_deref(best_move);
+            best_move = board->last_move;
+            move_ref(best_move);
+        }
+
         if (iterations%10000 == 0)
         {
             printf( "iterations=%10lldk score=%10d moves=%10d pq_size=%10d\n",
                     iterations/1000, board->score, board->moves, pq_size );
         }
 
-        if (board->moves < MOVE_LIMIT)
+        if (board->moves == MOVE_LIMIT)
         {
-            int r, c, v;
-            for (v = 0; v < 2; ++v)
+            printf("End of game reached!\n");
+            board_free(board);
+            break;
+        }
+
+        int r, c, v;
+        for (v = 0; v < 2; ++v)
+        {
+            for (r = 0; r < HIG(board); ++r)
             {
-                for (r = 0; r < HIG(board); ++r)
+                for (c = 0; c < WID(board); ++c)
                 {
-                    for (c = 0; c < WID(board); ++c)
+                    if (!move_valid(board, r, c, v)) continue;
+
+                    /* Build new board */
+                    Board *new_board = board_clone(board);
+                    assert(new_board != NULL);
+                    board_move(new_board, r, c, r + v, c + !v, 1);
+
+                    /* Truncate queue if necessary */
+                    if (pq_size == pq_cap)
                     {
-                        if (!move_valid(board, r, c, v)) continue;
-
-                        /* Build new board */
-                        Board *new_board = board_clone(board);
-                        assert(new_board != NULL);
-                        board_move(new_board, r, c, r + v, c + !v);
-
-                        /* Truncate queue if necessary */
-                        if (pq_size == pq_cap)
-                        {
-                            printf("Truncating queue...\n");
-                            qsort( (void*)pq, pq_size, sizeof(void*),
-                                   cmp_board_indirect );
-                            while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
-                        }
-                        pq[pq_size++] = new_board;
-                        heap_push(pq, pq_size, cmp_board);
+                        printf("Truncating queue...\n");
+                        qsort( (void*)pq, pq_size, sizeof(void*),
+                                cmp_board_indirect );
+                        while (pq_size > pq_cap/2) board_free(pq[--pq_size]);
                     }
+                    pq[pq_size++] = new_board;
+                    heap_push(pq, pq_size, cmp_board);
                 }
             }
         }
 
         board_free(board);
     }
-    printf("Queue exhausted.\n");
 
+    if (pq_size == 0) printf("Queue exhausted.\n");
+
+    /* Write best moves so far */
+    printf("Best score: %d\n", best_score);
+    {
+        FILE *fp = fopen("uitvoer.txt", "wt");
+        moves_print(best_move, fp);
+        fclose(fp);
+        move_deref(best_move);
+    }
+
+    /* Free priority queue */
     while (pq_size > 0) board_free(pq[--pq_size]);
     free(pq);
 }
@@ -173,8 +204,8 @@ int main(int argc, char *argv[])
 {
     Game *game;
 
-    /* For debugging: limit available memory to 512MB */
-    struct rlimit rlim = { 512*1024*1024, RLIM_INFINITY };
+    /* For debugging: limit available memory to 700MB */
+    struct rlimit rlim = { 700*1024*1024, RLIM_INFINITY };
     setrlimit(RLIMIT_AS, &rlim);
 
     mem_debug_report_at_exit(stderr);
