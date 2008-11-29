@@ -40,21 +40,36 @@ static int find(int *grp, int i)
     return j;
 }
 
-/* Merge groups i and j */
-static void merge(int *grp, int *crd, int i, int j)
+/* Merge groups i, j and k */
+static void merge3(int *grp, int *crd, int i, int j, int k)
 {
     int u = find(grp, i), v = find(grp, j);
-    if (u == v) return;
-
-    if (crd[u] >= crd[v])
+    if (u != v)
     {
-        crd[u] += crd[v];
-        grp[v] = u;
+        if (crd[u] >= crd[v])
+        {
+            crd[u] += crd[v];
+            v = grp[v] = u;
+        }
+        else
+        {
+            crd[v] += crd[u];
+            grp[u] = v;
+        }
     }
-    else
+    int w = find(grp, k);
+    if (v != w)
     {
-        crd[v] += crd[u];
-        grp[u] = v;
+        if (crd[v] >= crd[w])
+        {
+            crd[v] += crd[w];
+            grp[w] = v;
+        }
+        else
+        {
+            crd[w] += crd[v];
+            grp[v] = w;
+        }
     }
 }
 
@@ -84,35 +99,33 @@ static int remove_groups(Board *board, Rect *area)
     score = 0;
 
     /* Find horizontal groups of length at least 3 */
-    for (r = 0; r < h; ++r)
+    for (r = h - 1; r >= 0; --r)
     {
-        for (c = 2; c < w; ++c)
+        for (c = w - 3; c >= 0; --c)
         {
             if (fields[r][c] <= FIELD_EMPTY) continue;
 
-            if ( fields[r][c - 2] == fields[r][c - 1] &&
-                 fields[r][c - 1] == fields[r][c - 0] )
+            if ( fields[r][c + 0] == fields[r][c + 1] &&
+                 fields[r][c + 1] == fields[r][c + 2] )
             {
-                merge(grp, crd, w*r + c - 2, w*r + c - 1);
-                merge(grp, crd, w*r + c - 1, w*r + c - 0);
-                ++score;
+                merge3(grp, crd, w*r + c + 0, w*r + c + 1, w*r + c + 2);
+                score = 1;
             }
         }
     }
 
     /* Find vertical groups of length at least 3 */
-    for (r = 2; r < h; ++r)
+    for (c = w - 1; c >= 0; --c)
     {
-        for (c = 0; c < w; ++c)
+        for (r = h - 3; r >= 0; --r)
         {
             if (fields[r][c] <= FIELD_EMPTY) continue;
 
-            if ( fields[r - 2][c] == fields[r - 1][c] &&
-                 fields[r - 1][c] == fields[r - 0][c] )
+            if ( fields[r + 0][c] == fields[r + 1][c] &&
+                 fields[r + 1][c] == fields[r + 2][c] )
             {
-                merge(grp, crd, w*(r - 2) + c, w*(r - 1) + c);
-                merge(grp, crd, w*(r - 1) + c, w*(r - 0) + c);
-                ++score;
+                merge3(grp, crd, w*(r + 0) + c, w*(r + 1) + c, w*(r + 2) + c);
+                score = 1;
             }
         }
     }

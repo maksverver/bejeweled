@@ -39,7 +39,7 @@ typedef struct Game
     int width, height;      /* rectangular size of the board */
     Field **drops_begin;    /* for each column, a pointer to begin of the list */
     Field **drops_end;      /* for each column, a pointer to the end of list */
-    Board *initial;
+    Board *initial;         /* initial board */
 } Game;
 
 /* Macro to access fields in a game board; evaluates to an lvalue */

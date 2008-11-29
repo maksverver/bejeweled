@@ -1,5 +1,9 @@
 - Test robustness of test case input functions.
 
+- When loading the game definition, crop the field to minimum dimensions,
+  and keep a start row/col to generate correct moves
+  (important: TEST THIS!)
+
 To implement:
 - Write code to generate random test cases from templates
 - Generate a bunch of meaningful test cases

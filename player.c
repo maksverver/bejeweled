@@ -24,9 +24,8 @@ static int cmp_board(const void *arg1, const void *arg2)
 {
     const Board *board1 = arg1, *board2 = arg2;
     /* Order by decreasing scores, or increasing moves if tied. */
-    int d = board2->score - board1->score;
-    if (d == 0) d = board1->moves - board2->moves;
-    return d;
+    return (board2->score - board1->score) +
+           (board1->moves - board2->moves);
 }
 
 /* Merge nq into pq, freeing extra boards */
@@ -68,7 +67,8 @@ static int search(Game *game, int max_secs)
     {
         ++iterations;
         /* long long time_used = ustime() - time_start; */
-        long long time_used = 200LL*iterations; /* assume 200 microseconds per iteration */
+        /* DEBUG: assume 200 microseconds per iteration */
+        long long time_used = 200LL*iterations;
 
         if (pq_empty(pq))
         {
@@ -107,7 +107,8 @@ static int search(Game *game, int max_secs)
             next_update += 1000000; /* 1 sec */
         }
 
-        if (board->moves >= MOVE_LIMIT || board->score >= SCORE_LIMIT)
+                                /* DEBUG: */
+        if (board->moves >= MOVE_LIMIT/50 || board->score >= SCORE_LIMIT)
         {
             printf("End of game reached!\n");
             board_free(board);
@@ -117,9 +118,9 @@ static int search(Game *game, int max_secs)
         int r, c, v;
         for (v = 0; v < 2; ++v)
         {
-            for (r = 0; r < HIG(board); ++r)
+            for (c = WID(board) - 1; c >= 0; --c)
             {
-                for (c = 0; c < WID(board); ++c)
+                for (r = HIG(board) - 1; r >= 0; --r)
                 {
                     if (!move_valid(board, r, c, v)) continue;
 
