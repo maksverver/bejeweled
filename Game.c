@@ -600,7 +600,8 @@ void board_free(Board *board)
     }
 }
 
-/* NOTE: this function uses a lot of stack space! */
+/* NOTE: this function uses a lot of stack space:
+         390KB (32-bit) or 781KB (64-bit) when MOVE_LIMIT == 100000 */
 void moves_print(Move *move, void *fp)
 {
     Move *moves[MOVE_LIMIT];

@@ -67,7 +67,8 @@ static int search(Game *game, int max_secs)
     while (!pq_empty(pq) || !pq_empty(nq))
     {
         ++iterations;
-        long long time_used = ustime() - time_start;
+        /* long long time_used = ustime() - time_start; */
+        long long time_used = 200LL*iterations; /* assume 200 microseconds per iteration */
 
         if (pq_empty(pq))
         {
@@ -157,9 +158,11 @@ static int search(Game *game, int max_secs)
         move_deref(best_move);
     }
 
-    /* Free priority queue */
+    /* Free queues */
     while (!pq_empty(pq)) board_free(pq_pop_min(pq));
     pq_destroy(pq);
+    while (!pq_empty(nq)) board_free(pq_pop_min(nq));
+    pq_destroy(nq);
 
     return best_moves > 0 ? best_score/best_moves : 0;
 }

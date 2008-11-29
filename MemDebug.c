@@ -145,7 +145,7 @@ void mem_debug_report(FILE *fp, int enabled)
     {
         for (p = ptrs[i]; p != NULL; p = p->next)
         {
-            fprintf(fp, "Pointer %p with size %d leaked "
+            fprintf(fp, "Pointer %p with size %d leaked, "
                         "allocated in file %s at line %d.\n",
                         p->ptr, p->size, p->file, p->line );
             ++cnt;
