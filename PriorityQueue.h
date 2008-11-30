@@ -7,14 +7,10 @@
 
 #include <stdlib.h>
 
-/* Comparison function; should return 0 if elements are equal, a negative
-   number if the first argument is smaller than the first, or a positive number
-   otherwise. */
-typedef int (pq_compare_t)(const void *, const void *);
-
 /* Priority queue node structure; should not be accessed directly. */
 typedef struct HeapNode
 {
+    int             prio;       /* priority */
     void            *data;      /* stored pointer */
     struct HeapNode *other;     /* reference to element in other queue */
 } HeapNode;
@@ -23,14 +19,13 @@ typedef struct HeapNode
 typedef struct PriorityQueue
 {
     size_t          size, capacity;
-    pq_compare_t    *compare;
     struct HeapNode *min_heap, *max_heap;
 } PriorityQueue;
 
 
 /* Create a priority queue data structure with the given capacity
    Returns NULL if memory allocation failes. */
-PriorityQueue *pq_create(size_t capacity, pq_compare_t *compare);
+PriorityQueue *pq_create(size_t capacity);
 
 /* Destroy a priority queue, freeing all allocated resources. */
 void pq_destroy(PriorityQueue *pq);
@@ -48,14 +43,18 @@ void pq_destroy(PriorityQueue *pq);
 #define pq_full(pq) (pq_size(pq) == pq_capacity(pq))
 
 /* Return the minimum/maximum element in the queue */
-#define pq_get_min(pq) ((pq)->min_heap[0].data)
-#define pq_get_max(pq) ((pq)->max_heap[0].data)
+#define pq_min_data(pq) ((pq)->min_heap[0].data)
+#define pq_max_data(pq) ((pq)->max_heap[0].data)
+
+/* Return the priority of the minimum/maximum element in the queue */
+#define pq_min_prio(pq) ((pq)->min_heap[0].prio)
+#define pq_max_prio(pq) ((pq)->max_heap[0].prio)
 
 /* Remove the minimum/maximum element from the queue and return it */
 void *pq_pop_min(PriorityQueue *pq);
 void *pq_pop_max(PriorityQueue *pq);
 
 /* Add an element to the queue */
-void pq_push(PriorityQueue *pq, void *elem);
+void pq_push(PriorityQueue *pq, int prio, void *data);
 
 #endif /*ndef PRIORITY_QUEUE_H_INCLUDED */

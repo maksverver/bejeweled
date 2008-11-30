@@ -17,24 +17,14 @@ static long long ustime()
     return 1000000LL*tv.tv_sec + tv.tv_usec;
 }
 
-/* Compares to boards and returns <0, 0, >0 when the first board is better than,
-   equal to, or worse than the second board.
-*/
-static int cmp_board(const void *arg1, const void *arg2)
-{
-    const Board *board1 = arg1, *board2 = arg2;
-    /* Order by decreasing scores, or increasing moves if tied. */
-    return (board2->score - board1->score) +
-           (board1->moves - board2->moves);
-}
-
 /* Merge nq into pq, freeing extra boards */
 static void merge_board_queues(PriorityQueue *pq, PriorityQueue *nq)
 {
     while (!pq_empty(nq))
     {
         if (pq_full(pq)) board_free(pq_pop_max(pq));
-        pq_push(pq, pq_pop_min(nq));
+        pq_push(pq, pq_min_prio(nq), pq_min_data(nq));
+        pq_pop_min(nq);
     }
 }
 
@@ -43,11 +33,11 @@ static int search(Game *game, int max_secs)
     const size_t queue_cap = 1000;
 
     /* Priority queue for boards currently being processed */
-    PriorityQueue *pq = pq_create(queue_cap, cmp_board);
+    PriorityQueue *pq = pq_create(queue_cap);
     assert(pq != NULL);
 
     /* Queue for boards with moves == move_limit */
-    PriorityQueue *nq = pq_create(queue_cap, cmp_board);
+    PriorityQueue *nq = pq_create(queue_cap);
     assert(nq != NULL);
 
     /* Keep track of best score so far, and corresponding best last move */
@@ -56,19 +46,24 @@ static int search(Game *game, int max_secs)
     Move *best_move = NULL;
 
     /* Time limiting */
+#ifndef DEBUG_TIME
     long long time_start = ustime();
+#endif
     long long time_limit = 1000000LL*max_secs;    /* seconds -> microseconds */
     long long next_update = 0;
     int move_limit = 1;
     int iterations = 0;
 
-    pq_push(pq, board_clone(game->initial));
+    pq_push(pq, 0, board_clone(game->initial));
     while (!pq_empty(pq) || !pq_empty(nq))
     {
         ++iterations;
-        /* long long time_used = ustime() - time_start; */
-        /* DEBUG: assume 200 microseconds per iteration */
-        long long time_used = 200LL*iterations;
+#ifndef DEBUG_TIME
+        long long time_used = ustime() - time_start;
+#else
+                                /* assume 200 microseconds per iteration */
+        long long time_used =   200LL*iterations;
+#endif
 
         if (pq_empty(pq))
         {
@@ -100,15 +95,18 @@ static int search(Game *game, int max_secs)
         if (next_update <= time_used)
         {
             printf(
-                "iterations=%10d score=%10d moves=%5d pq_size=%5d nq_size=%5d "
+                "iterations=%10d score=%10d moves=%5d pq_size=%5zd nq_size=%5zd "
                 "move_limit=%6d est. score: %.3f\n",
                 iterations, board->score, board->moves, pq_size(pq), pq_size(nq),
                 move_limit, 1e-6*best_score/best_moves*MOVE_LIMIT);
             next_update += 1000000; /* 1 sec */
         }
 
-                                /* DEBUG: */
-        if (board->moves >= MOVE_LIMIT/50 || board->score >= SCORE_LIMIT)
+#ifndef DEBUG_TIME
+        if (board->moves >= MOVE_LIMIT || board->score >= SCORE_LIMIT)
+#else
+        if (board->moves >= 2000 || board->score >= SCORE_LIMIT)
+#endif
         {
             printf("End of game reached!\n");
             board_free(board);
@@ -129,17 +127,19 @@ static int search(Game *game, int max_secs)
                     assert(new_board != NULL);
                     board_move(new_board, r, c, r + v, c + !v, 1);
 
+                    int prio = new_board->moves - new_board->score;
+
                     if (new_board->moves < move_limit)
                     {
                         /* Add to active queue */
                         if (pq_full(pq)) board_free(pq_pop_max(pq));
-                        pq_push(pq, new_board);
+                        pq_push(pq, prio, new_board);
                     }
                     else
                     {
                         /* Add to next queue */
                         if (pq_full(nq)) board_free(pq_pop_max(nq));
-                        pq_push(nq, new_board);
+                        pq_push(nq, prio, new_board);
                     }
                 }
             }

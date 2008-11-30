@@ -16,23 +16,24 @@
 
 #if 0
 /* Used for debugging */
-static void heap_check(PriorityQueue *pq, HeapNode *heap)
+static void heap_check(HeapNode *heap, size_t size)
 {
     size_t cur;
-    for (cur = 0; cur < pq->size; ++cur)
+    for (cur = 0; cur < size; ++cur)
     {
-        if (cur > 0)
+        if (cur > 0 && heap[(cur - 1)/2].prio > heap[cur].prio)
         {
-            int d = pq->compare(heap[(cur-1)/2].data, heap[cur].data);
-            if ((heap == pq->min_heap ? +d : -d) > 0)
-            {
-                printf("heap violation at position %zd\n", cur);
-                abort();
-            }
+            printf("heap violation at position %zd\n", cur);
+            abort();
         }
-        if (heap[cur].other->other != &heap[cur])
+        if ( heap[cur].other->other != &heap[cur] )
         {
             printf("cross-reference violation at position %zd\n", cur);
+            abort();
+        }
+        if ( -heap[cur].prio != heap[cur].other->prio )
+        {
+            printf("inconsistent priorities at position %zd\n", cur);
             abort();
         }
     }
@@ -54,16 +55,17 @@ static void heap_swap(HeapNode *pq, size_t i, size_t j)
     pq[j].other->other = &pq[j];
 }
 
-static void heap_push(PriorityQueue *pq, HeapNode *heap, HeapNode *elem)
+/* Push the selected element into a min-heap.
+   the subtree rooted at elem is assumed to be a valid min-heap already. */
+static void heap_push(HeapNode *heap, HeapNode *elem)
 {
     size_t cur = elem - heap;
     while (cur > 0)
     {
         size_t par = (cur - 1)/2;
 
-        /* Stop if parent is not smaller than current node */
-        int d = pq->compare(heap[par].data, heap[cur].data);
-        if ((heap == pq->min_heap ? +d : -d) <= 0) break;
+        /* Stop if parent is not larger than current node */
+        if (heap[par].prio <= heap[cur].prio) break;
 
         /* Swap with parent */
         heap_swap(heap, cur, par);
@@ -71,22 +73,18 @@ static void heap_push(PriorityQueue *pq, HeapNode *heap, HeapNode *elem)
     }
 }
 
-static void heap_pop(PriorityQueue *pq, HeapNode *heap, HeapNode *node)
+/* Pop the selected element from a min-heap. */
+static void heap_pop(HeapNode *heap, size_t size, HeapNode *node)
 {
     /* Swap selected note to the end */
     size_t cur  = node - heap;
-    size_t size = pq->size - 1;
-    heap_swap(heap, cur, size);
+    heap_swap(heap, cur, --size);
 
     /* See if the new element must move up or down */
+    if (heap[cur].prio <= heap[size].prio)
     {
-        int d = pq->compare(heap[cur].data, heap[size].data);
-        if ((heap == pq->min_heap ? +d : -d) <= 0)
-        {
-            /* new element is smaller than old element, so move it up */
-            heap_push(pq, heap, &heap[cur]);
-            return;
-        }
+        /* new element is smaller than old element, so move it up */
+        return heap_push(heap, &heap[cur]);
     }
 
     /* Restore heap property by moving down */
@@ -94,15 +92,13 @@ static void heap_pop(PriorityQueue *pq, HeapNode *heap, HeapNode *node)
     while ((child = 2*cur + 1) < size)
     {
         /* Select child to compare against (smallest of the two) */
-        if (child + 1 < size)
+        if (child + 1 < size && heap[child + 1].prio < heap[child].prio)
         {
-            int d = pq->compare(heap[child].data, heap[child + 1].data);
-            if ((heap == pq->min_heap ? +d : -d) > 0) child = child + 1;
+            child = child + 1;
         }
 
         /* Stop if current element is not greater than child */
-        int d = pq->compare(heap[cur].data, heap[child].data);
-        if ((heap == pq->min_heap ? +d : -d) <= 0) break;
+        if (heap[cur].prio <= heap[child].prio) break;
 
         /* Swap current node with smallest child */
         heap_swap(heap, cur, child);
@@ -110,7 +106,7 @@ static void heap_pop(PriorityQueue *pq, HeapNode *heap, HeapNode *node)
     }
 }
 
-PriorityQueue *pq_create(size_t capacity, pq_compare_t *compare)
+PriorityQueue *pq_create(size_t capacity)
 {
     HeapNode *min_heap = NULL, *max_heap = NULL;
     PriorityQueue *pq = NULL;
@@ -126,7 +122,6 @@ PriorityQueue *pq_create(size_t capacity, pq_compare_t *compare)
     /* Initialize data structure */
     pq->size        = 0;
     pq->capacity    = capacity;
-    pq->compare     = compare;
     pq->min_heap    = min_heap;
     pq->max_heap    = max_heap;
 
@@ -151,18 +146,18 @@ void *pq_pop_min(PriorityQueue *pq)
 {
     assert(pq->size > 0);
 
-    void *res = pq_get_min(pq);
+    void *res = pq_min_data(pq);
 
     HeapNode *min_node = &pq->min_heap[0];
     HeapNode *max_node = min_node->other;
 
-    heap_pop(pq, pq->min_heap, min_node);
-    heap_pop(pq, pq->max_heap, max_node);
+    heap_pop(pq->min_heap, pq->size, min_node);
+    heap_pop(pq->max_heap, pq->size, max_node);
 
     --pq->size;
 
-    heap_check(pq, pq->min_heap);
-    heap_check(pq, pq->max_heap);
+    heap_check(pq->min_heap, pq->size);
+    heap_check(pq->max_heap, pq->size);
 
     return res;
 }
@@ -171,38 +166,41 @@ void *pq_pop_max(PriorityQueue *pq)
 {
     assert(pq->size > 0);
 
-    void *res = pq_get_max(pq);
+    void *res = pq_max_data(pq);
 
     HeapNode *max_node = &pq->max_heap[0];
     HeapNode *min_node = max_node->other;
 
-    heap_pop(pq, pq->min_heap, min_node);
-    heap_pop(pq, pq->max_heap, max_node);
+    heap_pop(pq->min_heap, pq->size, min_node);
+    heap_pop(pq->max_heap, pq->size, max_node);
 
     --pq->size;
 
-    heap_check(pq, pq->min_heap);
-    heap_check(pq, pq->max_heap);
+    heap_check(pq->min_heap, pq->size);
+    heap_check(pq->max_heap, pq->size);
 
     return res;
 }
 
-void pq_push(PriorityQueue *pq, void *elem)
+void pq_push(PriorityQueue *pq, int prio, void *data)
 {
     assert(pq->size < pq->capacity);
+    assert(prio >= 0 || -prio > 0);   /* check for positive integer overflow */
 
     /* Add element at end of heaps */
-    pq->min_heap[pq->size].data  = elem;
+    pq->min_heap[pq->size].data  = data;
+    pq->min_heap[pq->size].prio  = +prio;
     pq->min_heap[pq->size].other = &pq->max_heap[pq->size];
-    pq->max_heap[pq->size].data  = elem;
+    pq->max_heap[pq->size].data  = data;
+    pq->max_heap[pq->size].prio  = -prio;
     pq->max_heap[pq->size].other = &pq->min_heap[pq->size];
 
     /* Restore heaps */
-    heap_push(pq, pq->min_heap, &pq->min_heap[pq->size]);
-    heap_push(pq, pq->max_heap, &pq->max_heap[pq->size]);
+    heap_push(pq->min_heap, &pq->min_heap[pq->size]);
+    heap_push(pq->max_heap, &pq->max_heap[pq->size]);
 
     ++pq->size;
 
-    heap_check(pq, pq->min_heap);
-    heap_check(pq, pq->max_heap);
+    heap_check(pq->min_heap, pq->size);
+    heap_check(pq->max_heap, pq->size);
 }

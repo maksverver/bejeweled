@@ -1,4 +1,4 @@
-CFLAGS=-ansi -Wall -Wextra -g -O3 -m32 -march=i686 -DMEM_DEBUG
+CFLAGS=-ansi -Wall -Wextra -g -O3 -m32 -march=i686 -DMEM_DEBUG -DDEBUG_TIME
 SRCS=Game.c MemDebug.c Moves.c PriorityQueue.c
 OBJS=Game.o MemDebug.o Moves.o PriorityQueue.o
 
@@ -10,10 +10,10 @@ clean:
 distclean: clean
 	rm -f verifier player
 
-verifier: verifier.c $(OBJS)
+verifier: Makefile verifier.c $(OBJS)
 	$(CC) $(CFLAGS) -o verifier verifier.c $(OBJS)
 
-player: player.c $(SRCS)
+player: Makefile player.c $(SRCS)
 	$(CC) $(CFLAGS) -fwhole-program -combine -o player player.c $(SRCS)
 
 .PHONY: all clean distclean
