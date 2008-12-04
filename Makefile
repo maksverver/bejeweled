@@ -1,4 +1,4 @@
-CFLAGS=-ansi -Wall -Wextra -g -O3 -m32 -march=i686 -DMEM_DEBUG -DDEBUG_TIME
+CFLAGS=-ansi -Wall -Wextra -g -O3 -m32 -march=i686 #-DMEM_DEBUG -DDEBUG_TIME
 SRCS=Game.c MemDebug.c Moves.c PriorityQueue.c
 OBJS=Game.o MemDebug.o Moves.o PriorityQueue.o
 

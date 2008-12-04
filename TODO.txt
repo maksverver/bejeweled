@@ -15,6 +15,11 @@
    precalculate possible moves and loop over those (instead of looping
    over r,c,v separately)
 
+- Checkme: priority queue and next queue sizes affect final scores;
+           figure out why (performance reasons alone, or other reasons?)
+           Specifically, a next-queue smaller than the main queue seems to
+           improve scores.
+
 
 - Test robustness of test case input functions.
 

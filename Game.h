@@ -85,7 +85,7 @@ void board_dump(Board *board, void *fp);
 void moves_print(Move *last_move, void *fp);
 
 /* Reference counting for moves */
-void move_ref(Move *move);
+Move *move_ref(Move *move);
 void move_deref(Move *move);
 
 #endif /* ndef GAME_H_INCLUDED */

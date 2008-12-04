@@ -47,8 +47,8 @@ void pq_destroy(PriorityQueue *pq);
 #define pq_max_data(pq) ((pq)->max_heap[0].data)
 
 /* Return the priority of the minimum/maximum element in the queue */
-#define pq_min_prio(pq) ((pq)->min_heap[0].prio)
-#define pq_max_prio(pq) ((pq)->max_heap[0].prio)
+#define pq_min_prio(pq) (+(pq)->min_heap[0].prio)
+#define pq_max_prio(pq) (-(pq)->max_heap[0].prio)
 
 /* Remove the minimum/maximum element from the queue and return it */
 void *pq_pop_min(PriorityQueue *pq);

@@ -585,9 +585,10 @@ void board_dump(Board *board, void *fp)
     }
 }
 
-void move_ref(Move *move)
+Move *move_ref(Move *move)
 {
     if (move != NULL) ++move->ref_count;
+    return move;
 }
 
 void move_deref(Move *move)
