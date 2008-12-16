@@ -258,7 +258,7 @@ static char *file_get_contents(const char *path, size_t *size)
     char *buffer;
 
     buffer = NULL;
-    if ((fp = fopen(path, "rt")) == NULL) return NULL;
+    if ((fp = fopen(path, "rb")) == NULL) return NULL;
     if (fseek(fp, 0, SEEK_END) != 0) goto failed;
     filesize = ftell(fp);
     if (filesize < 0) goto failed;

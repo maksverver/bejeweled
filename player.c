@@ -140,9 +140,10 @@ static void search2(Game *game, long long max_usec)
         if (next_update <= time_used)
         {
             printf(
-                "iterations=%10d score=%10d moves=%5d pq_size=%5zd nq_size=%5zd "
+                "iterations=%10d score=%10d moves=%5d pq_size=%5d nq_size=%5d "
                 "move_limit=%6d score/move=%5d\n",
-                iterations, board->score, board->moves, pq_size(pq), pq_size(nq),
+                iterations, board->score, board->moves,
+                (int)pq_size(pq), (int)pq_size(nq),
                 move_limit, board->score/(1 + board->moves) );
             next_update += 1000000; /* 1 sec */
         }
