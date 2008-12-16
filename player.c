@@ -14,6 +14,10 @@ const size_t queue_cap = 10000;
 static Move *best_move = NULL;  /* game trace for best score */
 static int best_score = 0;      /* best possible score */
 
+/* Precalculated candidate moves: */
+static Candidate candidates[MAX_MOVES];
+static int num_candidates;
+
 /* Return the time in microseconds */
 static long long ustime()
 {
@@ -61,25 +65,23 @@ static void search1(Game *game, long long max_usec)
             break;
         }
 
-        int r, c, v;
-        for (v = 0; v < 2; ++v)
+        int n;
+        for (n = 0; n < num_candidates; ++n)
         {
-            for (c = WID(board) - 1; c >= 0; --c)
-            {
-                for (r = HIG(board) - 1; r >= 0; --r)
-                {
-                    if (!move_valid(board, r, c, v)) continue;
+            if (!move_valid_candidate(board, &candidates[n])) continue;
 
-                    /* Build new board */
-                    Board *new_board = board_clone(board);
-                    assert(new_board != NULL);
-                    board_move(new_board, r, c, r + v, c + !v, 1);
+            int  r = candidates[n].r;
+            int  c = candidates[n].c;
+            bool v = candidates[n].vert;
 
-                    if (pq_full(pq)) board_free(pq_pop_min(pq));
-                    int prio = 10000*new_board->moves - r + new_board->score/100;
-                    pq_push(pq, prio, new_board);
-                }
-            }
+            /* Build new board */
+            Board *new_board = board_clone(board);
+            assert(new_board != NULL);
+            board_move(new_board, r, c, r + v, c + !v, 1);
+
+            if (pq_full(pq)) board_free(pq_pop_min(pq));
+            int prio = 10000*new_board->moves - r + new_board->score/100;
+            pq_push(pq, prio, new_board);
         }
         board_free(board);
     }
@@ -155,35 +157,33 @@ static void search2(Game *game, long long max_usec)
             break;
         }
 
-        int r, c, v;
-        for (v = 0; v < 2; ++v)
+        int n;
+        for (n = 0; n < num_candidates; ++n)
         {
-            for (c = WID(board) - 1; c >= 0; --c)
+            if (!move_valid_candidate(board, &candidates[n])) continue;
+
+            int  r = candidates[n].r;
+            int  c = candidates[n].c;
+            bool v = candidates[n].vert;
+
+            /* Build new board */
+            Board *new_board = board_clone(board);
+            assert(new_board != NULL);
+            board_move(new_board, r, c, r + v, c + !v, 1);
+
+            int prio = new_board->score;
+
+            if (new_board->moves < move_limit)
             {
-                for (r = HIG(board) - 1; r >= 0; --r)
-                {
-                    if (!move_valid(board, r, c, v)) continue;
-
-                    /* Build new board */
-                    Board *new_board = board_clone(board);
-                    assert(new_board != NULL);
-                    board_move(new_board, r, c, r + v, c + !v, 1);
-
-                    int prio = new_board->score;
-
-                    if (new_board->moves < move_limit)
-                    {
-                        /* Add to active queue */
-                        if (pq_full(pq)) board_free(pq_pop_min(pq));
-                        pq_push(pq, prio, new_board);
-                    }
-                    else
-                    {
-                        /* Add to next queue */
-                        if (pq_full(nq)) board_free(pq_pop_min(nq));
-                        pq_push(nq, prio, new_board);
-                    }
-                }
+                /* Add to active queue */
+                if (pq_full(pq)) board_free(pq_pop_min(pq));
+                pq_push(pq, prio, new_board);
+            }
+            else
+            {
+                /* Add to next queue */
+                if (pq_full(nq)) board_free(pq_pop_min(nq));
+                pq_push(nq, prio, new_board);
             }
         }
 
@@ -218,6 +218,9 @@ int main(int argc, char *argv[])
         perror("failed to load board definition");
         exit(1);
     }
+
+    /* Generate candidate moves */
+    num_candidates = move_generate_candidates(game->initial, candidates);
 
     /* First, search for a single feasible solution */
     search1(game, time_limit);
