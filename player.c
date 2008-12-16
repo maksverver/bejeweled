@@ -66,6 +66,7 @@ static void search1(Game *game, long long max_usec)
         }
 
         int n;
+        #pragma omp parallel for
         for (n = 0; n < num_candidates; ++n)
         {
             if (!move_valid_candidate(board, &candidates[n])) continue;
@@ -79,9 +80,14 @@ static void search1(Game *game, long long max_usec)
             assert(new_board != NULL);
             board_move(new_board, r, c, r + v, c + !v, 1);
 
-            if (pq_full(pq)) board_free(pq_pop_min(pq));
-            int prio = 10000*new_board->moves - r + new_board->score/100;
-            pq_push(pq, prio, new_board);
+            Board *old_board = NULL;
+            #pragma omp critical
+            {
+                if (pq_full(pq)) old_board = pq_pop_min(pq);
+                int prio = 10000*new_board->moves - r + new_board->score/100;
+                pq_push(pq, prio, new_board);
+            }
+            board_free(old_board);
         }
         board_free(board);
     }
@@ -158,6 +164,7 @@ static void search2(Game *game, long long max_usec)
         }
 
         int n;
+        #pragma omp parallel for
         for (n = 0; n < num_candidates; ++n)
         {
             if (!move_valid_candidate(board, &candidates[n])) continue;
@@ -173,18 +180,26 @@ static void search2(Game *game, long long max_usec)
 
             int prio = new_board->score;
 
+            Board *old_board = NULL;
             if (new_board->moves < move_limit)
             {
                 /* Add to active queue */
-                if (pq_full(pq)) board_free(pq_pop_min(pq));
-                pq_push(pq, prio, new_board);
+                #pragma omp critical
+                {
+                    if (pq_full(pq)) old_board = pq_pop_min(pq);
+                    pq_push(pq, prio, new_board);
+                }
             }
             else
             {
                 /* Add to next queue */
-                if (pq_full(nq)) board_free(pq_pop_min(nq));
-                pq_push(nq, prio, new_board);
+                #pragma omp critical
+                {
+                    if (pq_full(nq)) old_board = pq_pop_min(nq);
+                    pq_push(nq, prio, new_board);
+                }
             }
+            board_free(old_board);
         }
 
         board_free(board);
@@ -198,6 +213,8 @@ static void search2(Game *game, long long max_usec)
     while (!pq_empty(nq)) board_free(pq_pop_min(nq));
     pq_destroy(nq);
 }
+
+#include <omp.h>
 
 int main(int argc, char *argv[])
 {
@@ -218,6 +235,9 @@ int main(int argc, char *argv[])
         perror("failed to load board definition");
         exit(1);
     }
+
+    /* omp_set_num_threads(4); */
+    printf("Using %d threads\n", omp_get_max_threads());
 
     /* Generate candidate moves */
     num_candidates = move_generate_candidates(game->initial, candidates);

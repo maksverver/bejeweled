@@ -587,7 +587,11 @@ void board_dump(Board *board, void *fp)
 
 Move *move_ref(Move *move)
 {
-    if (move != NULL) ++move->ref_count;
+    if (move != NULL)
+    {
+        #pragma omp atomic
+        move->ref_count += 1;
+    }
     return move;
 }
 
@@ -598,7 +602,9 @@ void move_deref(Move *move)
     while (move != NULL)
     {
         assert(move->ref_count > 0);
-        if (--move->ref_count > 0) break;
+        #pragma omp atomic
+        move->ref_count -= 1;
+        if (move->ref_count > 0) break;
         prev = move->prev;
         free(move);
         move = prev;

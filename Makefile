@@ -14,6 +14,6 @@ verifier: Makefile verifier.c $(OBJS)
 	$(CC) $(CFLAGS) -o verifier verifier.c $(OBJS)
 
 player: Makefile player.c $(SRCS)
-	$(CC) $(CFLAGS) -fwhole-program -combine -o player player.c $(SRCS)
+	$(CC) $(CFLAGS) -fopenmp -fwhole-program -combine -o player player.c $(SRCS)
 
 .PHONY: all clean distclean
