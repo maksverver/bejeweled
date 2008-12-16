@@ -1,0 +1,4 @@
+Set	Processor	OS		Arch	Real		User		System
+offical	Athlon64 3000+ 	Linux		IA-32	3m0.340s	2m35.122s	0m0.995s
+offical	??		Linux		IA-32
+offical	??		Windows XP	IA-32

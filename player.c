@@ -17,9 +17,15 @@ static int best_score = 0;      /* best possible score */
 /* Return the time in microseconds */
 static long long ustime()
 {
+#ifdef TIME_SIM
+    static long long counter = 0;
+    counter += 1000;
+    return counter;
+#else
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return 1000000LL*tv.tv_sec + tv.tv_usec;
+#endif
 }
 
 /* Merge nq into pq, freeing extra boards */
