@@ -3,13 +3,14 @@
 #include "Moves.h"
 #include "PriorityQueue.h"
 #include <assert.h>
+#include <omp.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>   /* gettimeofday() */
 
-const size_t queue_cap = 10000;
+const size_t queue_cap = 1000;
 
 static Move *best_move = NULL;  /* game trace for best score */
 static int best_score = 0;      /* best possible score */
@@ -43,61 +44,20 @@ static void merge_board_queues(PriorityQueue *pq, PriorityQueue *nq)
     }
 }
 
-static void search1(Game *game, long long max_usec)
+static int heuristic1(const Board *board, const Candidate *move)
 {
-    PriorityQueue *pq = pq_create(queue_cap);
-    assert(pq != NULL);
+    return 10000*board->moves - move->r + board->score/100;
+}
 
-    long long time_start = ustime();
-    pq_push(pq, 0, board_clone(game->initial));
-    while (!pq_empty(pq) && ustime() - time_start < max_usec)
-    {
-        Board *board = pq_pop_max(pq);
-        if (board->score > best_score)
-        {
-            best_score = board->score;
-            move_deref(best_move);
-            best_move = move_ref(board->last_move);
-        }
-        if (board->moves == MOVE_LIMIT)
-        {
-            board_free(board);
-            break;
-        }
-
-        int n;
-        #pragma omp parallel for
-        for (n = 0; n < num_candidates; ++n)
-        {
-            if (!move_valid_candidate(board, &candidates[n])) continue;
-
-            int  r = candidates[n].r;
-            int  c = candidates[n].c;
-            bool v = candidates[n].vert;
-
-            /* Build new board */
-            Board *new_board = board_clone(board);
-            assert(new_board != NULL);
-            board_move(new_board, r, c, r + v, c + !v, 1);
-
-            Board *old_board = NULL;
-            #pragma omp critical
-            {
-                if (pq_full(pq)) old_board = pq_pop_min(pq);
-                int prio = 10000*new_board->moves - r + new_board->score/100;
-                pq_push(pq, prio, new_board);
-            }
-            board_free(old_board);
-        }
-        board_free(board);
-    }
-    if (pq_empty(pq)) printf("search1: Queue exhausted!\n");
-    while (!pq_empty(pq)) board_free(pq_pop_min(pq));
-    pq_destroy(pq);
+static int heuristic2(const Board *board, const Candidate *move)
+{
+    (void)move; /* unused */
+    return board->score;
 }
 
 /* Time-bounded search for optimal score. Does not work well on "hard" sets. */
-static void search2(Game *game, long long max_usec)
+static void search( Game *game, long long max_usec, bool use_all_time,
+                    int (*heuristic) (const Board *, const Candidate *) )
 {
     /* Priority queue for boards currently being processed */
     PriorityQueue *pq = pq_create(queue_cap);
@@ -110,7 +70,7 @@ static void search2(Game *game, long long max_usec)
     /* Time limiting */
     long long time_start = ustime();
     long long next_update = 0;
-    int move_limit = 1;
+    int move_limit = use_all_time ? 1 : MOVE_LIMIT + 1;
     int iterations = 0;
 
     pq_push(pq, 0, board_clone(game->initial));
@@ -120,22 +80,26 @@ static void search2(Game *game, long long max_usec)
         if (time_used >= max_usec) break;
         ++iterations;
 
-        if (pq_empty(pq))
+        if (use_all_time)
         {
-            /* Increase move limit because we need the new boards */
-            ++move_limit;
-            merge_board_queues(pq, nq);
-        }
-        else
-        if (MOVE_LIMIT * time_used / max_usec > move_limit)
-        {
-            /* Increase move limit because time demands we make progress */
-            move_limit = MOVE_LIMIT * time_used / max_usec;
-            merge_board_queues(pq, nq);
+            if (pq_empty(pq))
+            {
+                /* Increase move limit because we need the new boards */
+                ++move_limit;
+                merge_board_queues(pq, nq);
+            }
+            else
+            if (MOVE_LIMIT * time_used / max_usec > move_limit)
+            {
+                /* Increase move limit because time demands we make progress */
+                move_limit = MOVE_LIMIT * time_used / max_usec;
+                merge_board_queues(pq, nq);
+            }
         }
 
         /* Take next best board from the heap */
         Board *board = pq_pop_max(pq);
+        /* printf("%d %d\n", board->moves, board->score); */
 
         if (board->score > best_score)
         {
@@ -178,7 +142,7 @@ static void search2(Game *game, long long max_usec)
             assert(new_board != NULL);
             board_move(new_board, r, c, r + v, c + !v, 1);
 
-            int prio = new_board->score;
+            int prio = heuristic(new_board, &candidates[n]);
 
             Board *old_board = NULL;
             if (new_board->moves < move_limit)
@@ -214,8 +178,6 @@ static void search2(Game *game, long long max_usec)
     pq_destroy(nq);
 }
 
-#include <omp.h>
-
 int main(int argc, char *argv[])
 {
     long long time_start = ustime();
@@ -243,11 +205,11 @@ int main(int argc, char *argv[])
     num_candidates = move_generate_candidates(game->initial, candidates);
 
     /* First, search for a single feasible solution */
-    search1(game, time_limit);
+    search(game, time_limit, false, heuristic1);
 
     /* Search for maximum scoring solution */
     long long time_left = time_start + time_limit - ustime();
-    if (time_left > 0) search2(game, time_left);
+    if (time_left > 0) search(game, time_left, true, heuristic2);
 
     game_free(game);
 
