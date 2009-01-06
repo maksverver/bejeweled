@@ -10,8 +10,6 @@
 #include <string.h>
 #include <sys/time.h>   /* gettimeofday() */
 
-const size_t queue_cap = 1000;
-
 static Move *best_move = NULL;  /* game trace for best score */
 static int best_score = 0;      /* best possible score */
 
@@ -57,7 +55,8 @@ static int heuristic2(const Board *board, const Candidate *move)
 
 /* Time-bounded search for optimal score. Does not work well on "hard" sets. */
 static void search( Game *game, long long max_usec, bool use_all_time,
-                    int (*heuristic) (const Board *, const Candidate *) )
+                    int (*heuristic) (const Board *, const Candidate *),
+                    size_t queue_cap )
 {
     /* Priority queue for boards currently being processed */
     PriorityQueue *pq = pq_create(queue_cap);
@@ -198,18 +197,17 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    /* omp_set_num_threads(4); */
     printf("Using %d threads\n", omp_get_max_threads());
 
     /* Generate candidate moves */
     num_candidates = move_generate_candidates(game->initial, candidates);
 
     /* First, search for a single feasible solution */
-    search(game, time_limit, false, heuristic1);
+    search(game, time_limit, false, heuristic1, 10000);
 
     /* Search for maximum scoring solution */
     long long time_left = time_start + time_limit - ustime();
-    if (time_left > 0) search(game, time_left, true, heuristic2);
+    if (time_left > 0) search(game, time_left, true, heuristic2, 1000);
 
     game_free(game);
 
